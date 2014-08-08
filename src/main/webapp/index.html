@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Colors API Client Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link
+	href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/css/bootstrap-combined.min.css"
+	rel="stylesheet">
+<script src="http://ajax.aspnetcdn.com/ajax/jquery/jquery-1.9.0.js"></script>
+<script
+	src="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+<script src="http://ajax.aspnetcdn.com/ajax/knockout/knockout-2.2.1.js"></script>
+</head>
+<body>
+	<div class="navbar">
+		<div class="navbar-inner">
+			<a class="brand" href="#">Colors API Client Demo</a>
+		</div>
+	</div>
+	<div id="main" class="container">
+		<table class="table table-striped">
+			<tr>
+				<td style="width: 1px;"></td>
+				<td><b>Colors</b>
+			</tr>
+			<!-- ko foreach: colors -->
+			<tr>
+				<td><p>
+						<b data-bind="text: colorname"></b>
+					</p></td>
+				<td>
+					<button data-bind="click: $parent.beginEdit" class="btn">Edit</button>
+				</td>
+			</tr>
+			<!-- /ko -->
+		</table>
+		<button data-bind="click: beginAdd" class="btn">Add Color</button>
+		<button data-bind="click: makeGroups" class="btn">Group Color</button>
+	</div>
+	<div id="add" class="modal hide fade" tabindex="=1" role="dialog"
+		aria-labelledby="addDialogLabel" aria-hidden="true">
+		<div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal"
+				aria-hidden="true">×</button>
+			<h3 id="addDialogLabel">Add Color</h3>
+		</div>
+		<div class="modal-body">
+			<form class="form-horizontal">
+				<div class="control-group">
+					<label class="control-label" for="inputColorName">Color</label>
+					<div class="controls">
+						<input data-bind="value: colorname" type="text"
+							id="inputColorName" placeholder="Color name"
+							style="width: 150px;">
+					</div>
+				</div>
+			</form>
+		</div>
+		<div class="modal-footer">
+			<button data-bind="click: addColor" class="btn btn-primary">Add
+				Color</button>
+			<button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+		</div>
+	</div>
+	<div id="edit" class="modal hide fade" tabindex="=1" role="dialog"
+		aria-labelledby="editDialogLabel" aria-hidden="true">
+		<div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal"
+				aria-hidden="true">×</button>
+			<h3 id="editDialogLabel">Save Color</h3>
+		</div>
+		<div class="modal-body">
+			<form class="form-horizontal">
+				<div class="control-group">
+					<label class="control-label" for="inputColorName">Color</label>
+					<div class="controls">
+						<input data-bind="value: colorname" type="text"
+							id="inputColorName" placeholder="Color name"
+							style="width: 150px;">
+					</div>
+				</div>
+			</form>
+		</div>
+		<div class="modal-footer">
+			<button data-bind="click:editColor" class="btn btn-primary">Edit
+				Color</button>
+			<button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+		</div>
+	</div>
+
+	<div id="validateColor" class="modal fade">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<!-- dialog body -->
+				<div class="modal-body">
+					<button type="button" class="close" data-dismiss="modal">&times;</button>
+					Color can be only red, blue or green!
+				</div>
+				<!-- dialog buttons -->
+				<div class="modal-footer">
+					<button type="button" data-dismiss="modal" aria-hidden="true"
+						class="btn btn-primary">OK</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		function ColorsViewModel() {
+			var self = this;
+			self.tasksURI = 'http://localhost:8080/colors/jaxrs/api/v1.0/colors';
+			self.colors = ko.observableArray();
+
+			self.ajax = function(uri, method, data) {
+				var request = {
+					url : uri,
+					type : method,
+					contentType : "application/json",
+					accepts : "application/json",
+					cache : false,
+					dataType : 'json',
+					data : JSON.stringify(data),
+					error : function(jqXHR) {
+						console.log("ajax error " + jqXHR.status);
+					}
+				};
+				return $.ajax(request);
+			}
+			self.updateColor = function(color, newColor) {
+				var i = self.colors.indexOf(color);
+				self.colors()[i].uri(newColor.uri);
+				self.colors()[i].colorname(newColor.colorname);
+			}
+
+			self.beginAdd = function() {
+				$('#add').modal('show');
+			}
+			self.add = function(color) {
+				self.ajax(self.tasksURI, 'POST', color).done(function(data) {
+					self.colors.push({
+						uri : ko.observable(data.color.uri),
+						colorname : ko.observable(data.color.colorname)
+					});
+				});
+			}
+			self.makeGroups = function() {
+				self.ajax(self.tasksURI + "/groupbycolor", 'GET').done(
+						function(data) {
+							for (var i = 0; i < data.colors.length; i++) {
+								self.colors()[i].uri(data.colors[i].uri);
+								self.colors()[i]
+										.colorname(data.colors[i].colorname);
+							}
+						}).fail(function(jqXHR) {
+					console.log("ajax error " + jqXHR.status);
+				});
+			}
+			self.beginEdit = function(color) {
+				editColorViewModel.setColor(color);
+				$('#edit').modal('show');
+			}
+			self.edit = function(color, data) {
+				self.ajax(color.uri(), 'PUT', data).done(function(res) {
+					self.updateColor(color, res.color);
+				});
+			}
+		}
+
+		/* $("#validateColor").on("show", function() {    // wire up the OK button to dismiss the modal when shown
+		    $("#validateColor a.btn").on("click", function(e) {
+		        console.log("button pressed");   // just as an example...
+		        $("#validateColor").modal('hide');     // dismiss the dialog
+		    });
+		}); */
+
+		function validateColor(colorname) {
+			var colors = [ "red", "blue", "green" ];
+			if (colors.indexOf(colorname) > -1) {
+				return true;
+			}
+			$('#validateColor').modal({ // wire up the actual modal functionality and show the dialog
+				'backdrop' : 'static',
+				'keyboard' : true,
+				'show' : true
+			// ensure the modal is shown immediately
+			});
+			return false;
+		}
+		function AddColorViewModel() {
+			var self = this;
+			self.colorname = ko.observable();
+
+			self.addColor = function() {
+				if (validateColor(self.colorname())) {
+					$('#add').modal('hide');
+					colorsViewModel.add({
+						colorname : self.colorname()
+					});
+				}
+				self.colorname("");
+			}
+		}
+		function EditColorViewModel() {
+			var self = this;
+			self.colorname = ko.observable();
+
+			self.setColor = function(color) {
+				self.color = color;
+				self.colorname(color.colorname());
+				$('edit').modal('show');
+			}
+
+			self.editColor = function() {
+				if (validateColor(self.colorname())) {
+					$('#edit').modal('hide');
+					colorsViewModel.edit(self.color, {
+						colorname : self.colorname()
+					});
+				}
+			}
+		}
+
+		var colorsViewModel = new ColorsViewModel();
+		var addColorViewModel = new AddColorViewModel();
+		var editColorViewModel = new EditColorViewModel();
+		ko.applyBindings(colorsViewModel, $('#main')[0]);
+		ko.applyBindings(addColorViewModel, $('#add')[0]);
+		ko.applyBindings(editColorViewModel, $('#edit')[0]);
+	</script>
+</body>
+</html>
